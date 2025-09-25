@@ -92,7 +92,7 @@ if __name__ == "__main__":
                     print(f"Valor inválido inserido: {dynamic_range_selection}")
                     continue
 
-            Volcano_plot_selection = input("Deseja plotar o volcano plot? (y/n): ")
+            #Volcano_plot_selection = input("Deseja plotar o volcano plot? (y/n): ")
 
             MA_plot_selection = input("Deseja plotar o grático MA plot? (y/n): ")
             while True:
