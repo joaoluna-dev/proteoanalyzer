@@ -215,7 +215,6 @@ if __name__ == "__main__":
                 else:
                     print(f"Valor inválido inserido: {K_mean_plot_selection}")
                     continue
-
             print("Análise concluída com sucesso!")
 
         except ValueError as error:
@@ -223,6 +222,13 @@ if __name__ == "__main__":
         except Exception as error:
             print(f"Erro inesperado: {error}")
 
+        repeat = input("Deseja realizar uma nova análise? (y/n): ").lower()
+        if repeat == "y":
+            continue
+        elif repeat == "n":
+            break
+        else:
+            print(f"Valor invalido inserido: {repeat}.")
 
 
 
