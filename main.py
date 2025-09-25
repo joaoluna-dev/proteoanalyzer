@@ -4,20 +4,18 @@ import omicscope as omics
 import pandas as pd
 import os
 from datetime import datetime
-import subprocess
-
 
 #---------------------------------------------------------------------------------#
 def create_dir(targetdirectory, projectname, username):
-    os.chdir(targetdirectory)
-    os.mkdir(projectname)
-    os.mkdir(os.path.join(projectname, "tables"))
-    os.mkdir(os.path.join(projectname, "plots"))
-    with open(os.path.join(projectname, f"{projectname}.log"), "w+") as logfile:
+    project_path = os.path.join(targetdirectory, projectname)
+    os.mkdir(project_path)
+    os.mkdir(os.path.join(project_path, "tables"))
+    os.mkdir(os.path.join(project_path, "plots"))
+    with open(os.path.join(project_path, f"{projectname}.log"), "w+") as logfile:
         logfile.write(f"Project name: {projectname}\n")
         logfile.write(f"Owned by: {username}\n")
         logfile.write(f"Created on: {datetime.now()}")
-    return os.path.join(targetdirectory, projectname)
+    return project_path
 
 def read_proteomics_file(rawfilepath, method, control):
     if not os.path.exists(rawfilepath):
@@ -38,7 +36,6 @@ def create_json_file(dictionary, name, tablesdir):
         json.dump(dictionary, js)
 
 #----------------------------------------------------------------------------------#
-root = os.path.dirname(os.path.abspath(__file__))
 #----------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
@@ -53,7 +50,7 @@ if __name__ == "__main__":
             log_file = os.path.join(directory, f"{project_name}.log")
             tables_dir = os.path.join(directory, "tables")
             plots_dir = os.path.join(directory, "plots")
-            subprocess.run(["python", "tables.py", tables_dir, plots_dir], cwd=root)
+            print("Diretórios do projeto criados com sucesso.")
 
             #Obtendo dados das análises a partir do usuario
             raw_file_path = input("Insira o caminho da planilha com os dados da proteômica (não esqueça de incluir a extensão do arquivo)")
@@ -61,18 +58,24 @@ if __name__ == "__main__":
             control_group = input("Insira o nome do grupo controle, exatamente como está na planilha: ")
 
             #Lendo os dados e criando os arquivos com as planilhas
+            print("Lendo o arquivo de dados...")
             raw_file_data = read_proteomics_file(raw_file_path, proteomics_method, control_group)
-            params_dataframe = pd.Dataframe(raw_file_data.Params())
+            print("Criando tabela de parâmetros...")
+            params_dataframe = pd.DataFrame(raw_file_data.Params())
             create_xlsx_file(params_dataframe, "Parâmetros", tables_dir)
+            print("Criando arquivo de condições do estudo...")
             conditions_dictionary = {"Condições": f"{raw_file_data.Conditions}",
                                      "Controle": f"{raw_file_data.ControlGroup}"}
             create_json_file(conditions_dictionary, "Condições do estudo", tables_dir)
+            print("Criando tabela de dados brutos...")
             all_data_dataframe = pd.DataFrame(raw_file_data.quant_data())
             create_xlsx_file(all_data_dataframe, "Dados brutos", tables_dir)
+            print("Criando tabela de DEPs...")
             deps_dataframe = pd.DataFrame(raw_file_data.deps())
             create_xlsx_file(deps_dataframe, "DEPs", tables_dir)
 
             #Plotando os gráficos
+            print("Gerando gráficos...")
             raw_file_data.bar_ident(logscale=True,
                                     dpi=300,
                                     save=os.path.join(plots_dir, f"{project_name}_Barplot_Identificação.tiff"))
@@ -81,7 +84,8 @@ if __name__ == "__main__":
             while True:
                 if dynamic_range_selection == "y":
                     dynamic_range_proteins = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula e os nomes entre aspas simples: ")
-                    dynamic_range_proteins_list = [p.strip() for p in dynamic_range_proteins.strip(",")]
+                    dynamic_range_proteins_list = [p.strip() for p in dynamic_range_proteins.split(',')]
+                    print("Gerando gráfico de Dynamic Range...")
                     raw_file_data.DynamicRange(*dynamic_range_proteins_list,
                                                dpi=300,
                                                save=os.path.join(plots_dir, f"{project_name}_Dynamic_range.tiff"))
@@ -98,7 +102,8 @@ if __name__ == "__main__":
             while True:
                 if MA_plot_selection == "y":
                     MA_plot_proteins = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula e os nomes entre aspas simples: ")
-                    MA_plot_proteins_list = [p.strip() for p in MA_plot_proteins.strip(",")]
+                    MA_plot_proteins_list = [p.strip() for p in MA_plot_proteins.split(',')]
+                    print("Gerando MA plot...")
                     raw_file_data.MAplot(*MA_plot_proteins_list,
                                          dpi=300,
                                          save=os.path.join(plots_dir, f"{project_name}_MA_plot.tiff"))
@@ -112,6 +117,7 @@ if __name__ == "__main__":
             Normalization_plot_selection = input("Deseja plotar o gráfico de normalização? (y/n): ")
             while True:
                 if Normalization_plot_selection == "y":
+                    print("Gerando gráfico de normalização...")
                     raw_file_data.normalization_boxplot(dpi=300,
                                                         save=os.path.join(plots_dir, f"{project_name}_Normalização_boxplot.tiff"))
                     break
@@ -125,7 +131,8 @@ if __name__ == "__main__":
             while True:
                 if Proteins_bar_plot_selection == "y":
                     Proteins_bar_plot_proteins = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula e os nomes entre aspas simples: ")
-                    Proteins_bar_plot_proteins_list = [p.strip() for p in Proteins_bar_plot_proteins.strip(",")]
+                    Proteins_bar_plot_proteins_list = [p.strip() for p in Proteins_bar_plot_proteins.split(',')]
+                    print("Gerando gráfico de barras da abundância de proteínas...")
                     raw_file_data.bar_protein(*Proteins_bar_plot_proteins_list,
                                          palette='viridis',
                                          dpi=300,
@@ -141,7 +148,8 @@ if __name__ == "__main__":
             while True:
                 if Proteins_boxplot_selection == "y":
                     Proteins_boxplot_proteins = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula e os nomes entre aspas simples: ")
-                    Proteins_boxplot_proteins_list = [p.strip() for p in Proteins_boxplot_proteins.strip(",")]
+                    Proteins_boxplot_proteins_list = [p.strip() for p in Proteins_boxplot_proteins.split(',')]
+                    print("Gerando boxplot da abundância de proteínas...")
                     raw_file_data.boxplot_protein(*Proteins_boxplot_proteins_list,
                                               palette='viridis',
                                               dpi=300,
@@ -156,6 +164,7 @@ if __name__ == "__main__":
             Heatmap_selection = input("Deseja plotar o heatmap do nível de expressão das proteínas? (y/n): ")
             while True:
                 if Heatmap_selection == "y":
+                    print("Gerando heatmap de expressão...")
                     raw_file_data.heatmap(dpi=300,
                                           linewidth=0,
                                           save=os.path.join(plots_dir, f"{project_name}_Heatmap_expressão.tiff"))
@@ -169,6 +178,7 @@ if __name__ == "__main__":
             Correlation_plot_selection = input("Deseja plotar o heatmap de correlação entre os grupos? (y/n): ")
             while True:
                 if Correlation_plot_selection == "y":
+                    print("Gerando heatmap de correlação...")
                     raw_file_data.correlation(dpi=300,
                                           linewidth=0,
                                           save=os.path.join(plots_dir, f"{project_name}_Heatmap_correlação.tiff"))
@@ -182,6 +192,7 @@ if __name__ == "__main__":
             PCA_plot_selection = input("Deseja plotar o gráfico de PCA? (y/n): ")
             while True:
                 if PCA_plot_selection == "y":
+                    print("Gerando gráfico de PCA...")
                     raw_file_data.pca(pvalue=0.05,
                                       dpi=300,
                                       save=os.path.join(plots_dir, f"{project_name}_PCA.tiff"))
@@ -195,6 +206,7 @@ if __name__ == "__main__":
             K_mean_plot_selection = input("Deseja plotar o gráfico de K-means? (y/n): ")
             while True:
                 if K_mean_plot_selection == "y":
+                    print("Gerando gráfico de K-means...")
                     raw_file_data.k_trend(dpi=300,
                                           save=os.path.join(plots_dir, f"{project_name}_Kmeans.tiff"))
                     break
@@ -203,6 +215,8 @@ if __name__ == "__main__":
                 else:
                     print(f"Valor inválido inserido: {K_mean_plot_selection}")
                     continue
+
+            print("Análise concluída com sucesso!")
 
         except ValueError as error:
             print(f"O valor inserido é invalido: {error}")
