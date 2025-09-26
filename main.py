@@ -83,7 +83,6 @@ def create_json_file(dictionary, name, tablesdir):
     filename = os.path.join(tablesdir, f"{name}.json")
     with open(filename, "w+") as js:
         json.dump(dictionary, js)
-
 #----------------------------------------------------------------------------------#
 
 if __name__ == "__main__":
