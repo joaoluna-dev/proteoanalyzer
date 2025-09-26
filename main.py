@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 import math
 import logging
+import shutil
 
 
 # ---------------------------------------------------------------------------------#
@@ -19,11 +20,37 @@ def create_dir(targetdirectory, projectname):
 
     # Verifica se o diretório do projeto já existe
     if os.path.exists(project_path):
-        response = input(f"O diretório '{projectname}' já existe. Deseja sobrescrever? (y/n): ").lower().strip()
-        if response != 'y':
-            raise Exception("Operação cancelada pelo usuário.")
+        response = input(f"O diretório '{projectname}' já existe no caminho selecionado. Deseja sobrescrever? (y/n): ").lower().strip()
+        if response == 'n':
+            while True:
+                another_dir = input("Deseja selecionar outro diretório? (y/n): ").lower().strip()
+                if another_dir == "y":
+                    another_directory = input("Insira o caminho onde os arquivos da análise serão criados (ex: C:/Users/user/Documents): ").strip().strip('"')
+                    project_path = os.path.join(another_directory, projectname)
+                    logging.info(f"Novo diretório criado: {project_path}")
+                    if os.path.exists(project_path):
+                        print(f"O diretório {projectname} também existe no caminho selecionado.")
+                        logging.error(f"O diretório {projectname} existe no caminho selecionado.")
+                        continue
+                    else:
+                        logging.info(f"O diretório {projectname} foi criado em {another_directory}")
+                        print(f"O diretório {projectname} foi criado em {another_directory}")
+                        break
+                elif another_dir == "n":
+                    logging.info("Operação cancelada pelo usuário.")
+                    raise Exception("Operação cancelada pelo usuário.")
+                else:
+                    print(f"Opção inválida inserida: {another_dir}")
+                    continue
+        elif response == 'y':
+            shutil.rmtree(project_path)
+            os.mkdir(project_path)
+            logging.info(f"O diretório {projectname} foi recriado em {targetdirectory}")
+            print(f"O diretório {projectname} foi recriado em {targetdirectory}")
     else:
         os.mkdir(project_path)
+        logging.info(f"O diretório {projectname} foi criado em {targetdirectory}")
+        print(f"O diretório {projectname} foi criado em {targetdirectory}")
 
     # Cria subdiretórios
     tables_path = os.path.join(project_path, "tables")
@@ -57,9 +84,9 @@ def read_proteomics_file(rawfilepath, method, control):
 def plot_data(rawfiledata, analysis_type, titlename, plotsdir, analysis):
 
     if analysis_type == "conditions_barplot" or analysis_type == "conditions_boxplot":
-        proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula: ")
+        proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ")
         # Remove aspas simples e duplas se o usuário as inserir
-        proteins_list = [p.strip().strip('"') for p in proteins_string.split(',')]
+        proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
         palette = input("Insira a paleta desejada (pressione enter para utilizar a paleta de cores padrão): ").lower()
         if len(palette) == 0:
             palette = 'viridis'
@@ -77,17 +104,17 @@ def plot_data(rawfiledata, analysis_type, titlename, plotsdir, analysis):
                                  save=os.path.join(plotsdir, titlename))
 
     elif analysis_type == "dynamic_range":
-        proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula: ")
-        proteins_list = [p.strip().strip('"') for p in proteins_string.split(',')]
+        proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ")
+        proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
         print(f"Gerando {analysis}...")
         logging.info(f"Gerando {analysis}...")
-        rawfiledata.Dynamic_range(*proteins_list,
+        rawfiledata.DynamicRange(*proteins_list,
                                   dpi=300,
                                   save=os.path.join(plotsdir, titlename))
 
     elif analysis_type == "ma_plot":
-        proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula: ")
-        proteins_list = [p.strip().strip('"') for p in proteins_string.split(',')]
+        proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ")
+        proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
         print(f"Gerando {analysis}...")
         logging.info(f"Gerando {analysis}...")
         rawfiledata.MAplot(*proteins_list,
@@ -136,10 +163,10 @@ def plot_data(rawfiledata, analysis_type, titlename, plotsdir, analysis):
 def perform_ora_enrichment(rawfiledata, db, titlename, analysis, tablesdir, plotsdir):
     print(f"Iniciando análise: {analysis}...")
     logging.info(f"Iniciando análise: {analysis}...")
-    data = omics.EnrichmentScope(rawfiledata, Analysis='ORA', dbs=[db])
-    data_dataframe = pd.DataFrame(data)
+    data_object = omics.EnrichmentScope(rawfiledata, Analysis='ORA', dbs=[db])
+    data_dataframe = data_object.results
     create_xlsx_file(data_dataframe, titlename, tablesdir)
-    data.dotplot(dpi=300, palette='PuBu', save=os.path.join(plotsdir, f"{titlename}.tiff"))
+    data_object.dotplot(dpi=300, palette='PuBu', save=os.path.join(plotsdir, f"{titlename}.tiff"))
     print(f"Análise {analysis} concluída.")
     logging.info(f"Análise {analysis} concluída.")
 
@@ -170,9 +197,7 @@ if __name__ == "__main__":
             # Gerando diretórios e arquivo de log das análises
             user_name = input("Insira o nome do usuário: ")
             project_name = input("Insira um nome para o projeto a ser analisado: ")
-            target_directory = input(
-                "Insira o caminho onde os arquivos da análise serão criados (ex: C:/Users/user/Documents): ").strip().strip(
-                '"').strip("'")
+            target_directory = input("Insira o caminho onde os arquivos da análise serão criados (ex: C:/Users/user/Documents): ").strip().strip('"')
             directory = create_dir(target_directory, project_name)
             tables_dir = os.path.join(directory, "tables")
             plots_dir = os.path.join(directory, "plots")
@@ -214,7 +239,7 @@ if __name__ == "__main__":
             # Lendo os parÂmetros e salvando-os em um arquivo
             print("Criando tabela de parâmetros...")
             logging.info("Criando tabela de parâmetros...")
-            params_dataframe = pd.DataFrame(raw_file_data.Params())
+            params_dataframe = pd.DataFrame(raw_file_data.Params)
             create_xlsx_file(params_dataframe, "Parâmetros", tables_dir)
 
             # Criando arquivo json com as condições do estudo
@@ -227,13 +252,13 @@ if __name__ == "__main__":
             # Criando tabela com os dados brutos
             print("Criando tabela de dados brutos...")
             logging.info("Criando tabela de dados brutos...")
-            all_data_dataframe = pd.DataFrame(raw_file_data.quant_data())
+            all_data_dataframe = pd.DataFrame(raw_file_data.quant_data)
             create_xlsx_file(all_data_dataframe, "Dados brutos", tables_dir)
 
             # Criando tabela com as DEPs
             print("Criando tabela de DEPs...")
             logging.info("Criando tabela de DEPs...")
-            deps_dataframe = pd.DataFrame(raw_file_data.deps())
+            deps_dataframe = pd.DataFrame(raw_file_data.deps)
             create_xlsx_file(deps_dataframe, "DEPs", tables_dir)
 
             # Obtendo as DEPs com significância para o estudo
