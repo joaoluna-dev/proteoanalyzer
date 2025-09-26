@@ -12,6 +12,7 @@ import logging
 def create_dir(targetdirectory, projectname):
     """Cria a estrutura de diretórios do projeto."""
     if not os.path.exists(targetdirectory):
+        logging.error(f"O diretório {targetdirectory} inserido não existe.")
         raise FileNotFoundError(f"O diretório de destino não existe: {targetdirectory}")
 
     project_path = os.path.join(targetdirectory, projectname)
@@ -24,14 +25,11 @@ def create_dir(targetdirectory, projectname):
     else:
         os.mkdir(project_path)
 
-    # Cria subdiretórios se não existirem
+    # Cria subdiretórios
     tables_path = os.path.join(project_path, "tables")
+    os.mkdir(tables_path)
     plots_path = os.path.join(project_path, "plots")
-
-    if not os.path.exists(tables_path):
-        os.mkdir(tables_path)
-    if not os.path.exists(plots_path):
-        os.mkdir(plots_path)
+    os.mkdir(plots_path)
 
     return project_path
 
@@ -52,14 +50,16 @@ def read_proteomics_file(rawfilepath, method, control):
         data = omics.OmicScope(rawfilepath, Method=method, ControlGroup=control)
         return data
     except Exception as e:
+        logging.error(f"Erro ao ler o arquivo de proteômica: {str(e)}")
         raise Exception(f"Erro ao ler o arquivo de proteômica: {str(e)}")
 
 
 def plot_data(rawfiledata, analysis_type, titlename, plotsdir, analysis):
+
     if analysis_type == "conditions_barplot" or analysis_type == "conditions_boxplot":
         proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula: ")
         # Remove aspas simples e duplas se o usuário as inserir
-        proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
+        proteins_list = [p.strip().strip('"') for p in proteins_string.split(',')]
         palette = input("Insira a paleta desejada (pressione enter para utilizar a paleta de cores padrão): ").lower()
         if len(palette) == 0:
             palette = 'viridis'
@@ -71,26 +71,26 @@ def plot_data(rawfiledata, analysis_type, titlename, plotsdir, analysis):
                                     dpi=300,
                                     save=os.path.join(plotsdir, titlename))
         else:  # conditions_boxplot
-            rawfiledata.box_plot(*proteins_list,
+            rawfiledata.boxplot_protein(*proteins_list,
                                  palette=palette,
                                  dpi=300,
                                  save=os.path.join(plotsdir, titlename))
 
     elif analysis_type == "dynamic_range":
         proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula: ")
-        proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
+        proteins_list = [p.strip().strip('"') for p in proteins_string.split(',')]
         print(f"Gerando {analysis}...")
         logging.info(f"Gerando {analysis}...")
-        rawfiledata.dynamic_range(*proteins_list,
+        rawfiledata.Dynamic_range(*proteins_list,
                                   dpi=300,
                                   save=os.path.join(plotsdir, titlename))
 
     elif analysis_type == "ma_plot":
         proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula: ")
-        proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
+        proteins_list = [p.strip().strip('"') for p in proteins_string.split(',')]
         print(f"Gerando {analysis}...")
         logging.info(f"Gerando {analysis}...")
-        rawfiledata.ma_plot(*proteins_list,
+        rawfiledata.MAplot(*proteins_list,
                             dpi=300,
                             save=os.path.join(plotsdir, titlename))
 
@@ -111,7 +111,7 @@ def plot_data(rawfiledata, analysis_type, titlename, plotsdir, analysis):
     elif analysis_type == "id_barplot":
         print(f"Gerando {analysis}...")
         logging.info(f"Gerando {analysis}...")
-        rawfiledata.bar_id(dpi=300,
+        rawfiledata.bar_ident(dpi=300,
                            save=os.path.join(plotsdir, titlename))
 
     elif analysis_type == "pca":
@@ -123,13 +123,13 @@ def plot_data(rawfiledata, analysis_type, titlename, plotsdir, analysis):
     elif analysis_type == "kmeans":
         print(f"Gerando {analysis}...")
         logging.info(f"Gerando {analysis}...")
-        rawfiledata.kmeans(dpi=300,
+        rawfiledata.k_trend(dpi=300,
                            save=os.path.join(plotsdir, titlename))
 
     elif analysis_type == "normalization_plot":
         print(f"Gerando {analysis}...")
         logging.info(f"Gerando {analysis}...")
-        rawfiledata.normalisation_plot(dpi=300,
+        rawfiledata.normalization_boxplot(dpi=300,
                                        save=os.path.join(plotsdir, titlename))
 
 
@@ -197,11 +197,9 @@ if __name__ == "__main__":
 
             # Validação do metodo de proteomica
             valid_methods = ['MaxQuant', 'Progenesis', 'General', 'DIA-NN', 'PatternLab']
-            proteomics_method = input(
-                "Insira o software de análise dos dados brutos (MaxQuant, Progenesis, General, DIA-NN, PatternLab): ").strip()
+            proteomics_method = input("Insira o software de análise dos dados brutos (MaxQuant, Progenesis, General, DIA-NN, PatternLab): ").strip()
             if proteomics_method not in valid_methods:
-                print(
-                    f"Aviso: Método '{proteomics_method}' pode não ser reconhecido. Métodos válidos: {', '.join(valid_methods)}")
+                print(f"Aviso: Método '{proteomics_method}' pode não ser reconhecido. Métodos válidos: {', '.join(valid_methods)}")
                 logging.warning(f"Método de proteômica possivelmente inválido: {proteomics_method}")
 
             control_group = input("Insira o nome do grupo controle, exatamente como está na planilha: ").strip()
@@ -303,39 +301,35 @@ if __name__ == "__main__":
 
             # K-means
             plot_data(raw_file_data, "kmeans", f"{project_name}_Kmeans.tiff", plots_dir, "gráfico de K-means")
+
             print("Plotagem dos dados concluída.")
             logging.info("Plotagem dos dados concluída.")
 
             # Enriquecimento dos dados
             print("Iniciando enriquecimento dos dados...")
             logging.info("Iniciando enriquecimento dos dados...")
+
             # KEGG
             perform_ora_enrichment(raw_file_data, 'KEGG_2021_Human', f"{project_name}_KEGG_pathways", "vias KEGG",
                                    tables_dir, plots_dir)
 
             # GO: processo biológico
-            perform_ora_enrichment(raw_file_data, 'GO_Biological_Process_2025', f"{project_name}_GO_BP",
-                                   "processo biológico", tables_dir, plots_dir)
+            perform_ora_enrichment(raw_file_data, 'GO_Biological_Process_2025', f"{project_name}_GO_BP","processo biológico", tables_dir, plots_dir)
 
             # CC: componente celular
-            perform_ora_enrichment(raw_file_data, 'GO_Cellular_Component_2025', f"{project_name}_GO_CC",
-                                   "componente celular", tables_dir, plots_dir)
+            perform_ora_enrichment(raw_file_data, 'GO_Cellular_Component_2025', f"{project_name}_GO_CC", "componente celular", tables_dir, plots_dir)
 
             # MF: função molecular
-            perform_ora_enrichment(raw_file_data, 'GO_Molecular_Function_2025', f"{project_name}_GO_MF",
-                                   "função molecular", tables_dir, plots_dir)
+            perform_ora_enrichment(raw_file_data, 'GO_Molecular_Function_2025', f"{project_name}_GO_MF", "função molecular", tables_dir, plots_dir)
 
             # Reactome
-            perform_ora_enrichment(raw_file_data, 'Reactome_Pathways_2024', f"{project_name}_Reactome", "vias Reactome",
-                                   tables_dir, plots_dir)
+            perform_ora_enrichment(raw_file_data, 'Reactome_Pathways_2024', f"{project_name}_Reactome", "vias Reactome", tables_dir, plots_dir)
 
             # OMIM
-            perform_ora_enrichment(raw_file_data, 'OMIM_Expanded', f"{project_name}_OMIM", "vias OMIM", tables_dir,
-                                   plots_dir)
+            perform_ora_enrichment(raw_file_data, 'OMIM_Expanded', f"{project_name}_OMIM", "vias OMIM", tables_dir, plots_dir)
 
             # DisGeNET
-            perform_ora_enrichment(raw_file_data, 'DisGeNET', f"{project_name}_DisGeNET", "vias DisGeNET", tables_dir,
-                                   plots_dir)
+            perform_ora_enrichment(raw_file_data, 'DisGeNET', f"{project_name}_DisGeNET", "vias DisGeNET", tables_dir, plots_dir)
             print("Enriquecimento dos dados concluído.")
             logging.info("Enriquecimento dos dados concluído.")
             print("Análise dos dados concluída com sucesso!")
