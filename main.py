@@ -92,7 +92,7 @@ if __name__ == "__main__":
             # Gerando diretórios e arquivo de log das análises
             user_name = input("Insira o nome do usuário: ")
             project_name = input("Insira um nome para o projeto a ser analisado: ")
-            target_directory = input("Insira o caminho onde os arquivos da análise serão criados (ex: C:/Users/user/Documents): ")
+            target_directory = input("Insira o caminho onde os arquivos da análise serão criados (ex: C:/Users/user/Documents): ").strip('"')
             directory = create_dir(target_directory, project_name)
             tables_dir = os.path.join(directory, "tables")
             plots_dir = os.path.join(directory, "plots")
