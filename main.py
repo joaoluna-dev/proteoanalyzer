@@ -4,6 +4,7 @@ import omicscope as omics
 import pandas as pd
 import os
 from datetime import datetime
+import math
 
 #---------------------------------------------------------------------------------#
 def create_dir(targetdirectory, projectname, username):
@@ -70,6 +71,11 @@ def create_xlsx_file(dataframe, name, tablesdir):
     filename = os.path.join(tablesdir, f"{name}.xlsx")
     dataframe.to_excel(filename)
 
+def filter_deps_dataframe(cutoff, dataframe):
+    condition = dataframe['log2(fc)'].abs() > cutoff
+    filtered_deps_dataframe = dataframe[condition].copy()
+    return filtered_deps_dataframe
+
 def create_json_file(dictionary, name, tablesdir):
     filename = os.path.join(tablesdir, f"{name}.json")
     with open(filename, "w+") as js:
@@ -117,10 +123,24 @@ if __name__ == "__main__":
             all_data_dataframe = pd.DataFrame(raw_file_data.quant_data())
             create_xlsx_file(all_data_dataframe, "Dados brutos", tables_dir)
 
-            #Criando tabela com os DEPs
+            #Criando tabela com as DEPs
             print("Criando tabela de DEPs...")
             deps_dataframe = pd.DataFrame(raw_file_data.deps())
             create_xlsx_file(deps_dataframe, "DEPs", tables_dir)
+
+            #Obtendo as DEPs com significância para o estudo
+            while True:
+                fc_input = input("Insira o valor de FC que você deseja para calcular o cutoff dos DEPs (1, 1.25, 1.5, 1.75, 2): ")
+                if not fc_input:
+                    print("Insira um valor de FC para continuar.")
+                    continue
+                else:
+                    break
+            fc = float(fc_input)
+            log2fc_cutoff = math.log2(fc)
+            significant_deps_dataframe = filter_deps_dataframe(log2fc_cutoff, deps_dataframe)
+            create_xlsx_file(significant_deps_dataframe, "DEPs filtradas", tables_dir)
+
 
             #Plotando os gráficos
             print("Gerando gráficos...")
