@@ -9,7 +9,6 @@ from datetime import datetime
 import math
 import logging
 import shutil
-
 from matplotlib import pyplot as plt
 
 
@@ -42,7 +41,8 @@ def create_dir(targetdirectory, projectname):
                         break
                 elif another_dir == "n":
                     logging.info("Operação cancelada pelo usuário.")
-                    raise Exception("Operação cancelada pelo usuário.")
+                    print("Operação cancelada pelo usuário.")
+                    exit(0)
                 else:
                     print(f"Opção inválida inserida: {another_dir}")
                     continue
@@ -56,12 +56,13 @@ def create_dir(targetdirectory, projectname):
         logging.info(f"O diretório {projectname} foi criado em {targetdirectory}")
         print(f"O diretório {projectname} foi criado em {targetdirectory}")
 
-    # Cria subdiretórios
+    # Cria subdiretórios e arquivo de log
+    with open(os.path.join(project_path, f"{projectname}.log"), "w+") as logfile:
+        logfile.write(f"Projeto: {projectname}")
     tables_path = os.path.join(project_path, "tables")
     os.mkdir(tables_path)
     plots_path = os.path.join(project_path, "plots")
     os.mkdir(plots_path)
-
     return project_path
 
 
@@ -264,7 +265,7 @@ if __name__ == "__main__":
 
             # Configurando o logger
             log_file_path = os.path.join(directory, f"{project_name}.log")
-            logging.basicConfig(level=logging.INFO,
+            logging.basicConfig(level=logging.DEBUG,
                                 format='%(asctime)s - %(levelname)s - %(message)s',
                                 filename=log_file_path,
                                 filemode='w')
@@ -277,15 +278,18 @@ if __name__ == "__main__":
             logging.info("Diretórios do projeto criados com sucesso.")
 
             # Obtendo dados das análises a partir do usuario
-            raw_file_path = input(
-                "Insira o caminho da planilha com os dados da proteômica (não esqueça de incluir a extensão do arquivo): ").strip()
+            raw_file_path = input("Insira o caminho da planilha com os dados da proteômica (não esqueça de incluir a extensão do arquivo): ").strip()
 
             # Validação do metodo de proteomica
             valid_methods = ['MaxQuant', 'Progenesis', 'General', 'DIA-NN', 'PatternLab']
-            proteomics_method = input("Insira o software de análise dos dados brutos (MaxQuant, Progenesis, General, DIA-NN, PatternLab): ").strip()
-            if proteomics_method not in valid_methods:
-                print(f"Aviso: Método '{proteomics_method}' pode não ser reconhecido. Métodos válidos: {', '.join(valid_methods)}")
-                logging.warning(f"Método de proteômica possivelmente inválido: {proteomics_method}")
+            while True:
+                proteomics_method = input("Insira o software de análise dos dados brutos (MaxQuant, Progenesis, General, DIA-NN, PatternLab): ").strip()
+                if proteomics_method not in valid_methods:
+                    print(f"Aviso: Método '{proteomics_method}' pode não ser reconhecido. Métodos válidos: {', '.join(valid_methods)}. Tente novamente.")
+                    logging.warning(f"Método de proteômica possivelmente inválido: {proteomics_method}")
+                    continue
+                else:
+                    break
 
             control_group = input("Insira o nome do grupo controle, exatamente como está na planilha: ").strip()
 
