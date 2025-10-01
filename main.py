@@ -16,7 +16,6 @@ from matplotlib import pyplot as plt
 def create_dir(targetdirectory, projectname):
     """Cria a estrutura de diretórios do projeto."""
     if not os.path.exists(targetdirectory):
-        logging.error(f"O diretório {targetdirectory} inserido não existe.")
         raise FileNotFoundError(f"O diretório de destino não existe: {targetdirectory}")
 
     project_path = os.path.join(targetdirectory, projectname)
@@ -30,17 +29,13 @@ def create_dir(targetdirectory, projectname):
                 if another_dir == "y":
                     another_directory = input("Insira o caminho onde os arquivos da análise serão criados (ex: C:/Users/user/Documents): ").strip().strip('"')
                     project_path = os.path.join(another_directory, projectname)
-                    logging.info(f"Novo diretório criado: {project_path}")
                     if os.path.exists(project_path):
                         print(f"O diretório {projectname} também existe no caminho selecionado.")
-                        logging.error(f"O diretório {projectname} existe no caminho selecionado.")
                         continue
                     else:
-                        logging.info(f"O diretório {projectname} foi criado em {another_directory}")
                         print(f"O diretório {projectname} foi criado em {another_directory}")
                         break
                 elif another_dir == "n":
-                    logging.info("Operação cancelada pelo usuário.")
                     print("Operação cancelada pelo usuário.")
                     exit(0)
                 else:
@@ -49,22 +44,30 @@ def create_dir(targetdirectory, projectname):
         elif response == 'y':
             shutil.rmtree(project_path)
             os.mkdir(project_path)
-            logging.info(f"O diretório {projectname} foi recriado em {targetdirectory}")
             print(f"O diretório {projectname} foi recriado em {targetdirectory}")
     else:
         os.mkdir(project_path)
-        logging.info(f"O diretório {projectname} foi criado em {targetdirectory}")
         print(f"O diretório {projectname} foi criado em {targetdirectory}")
 
     # Cria subdiretórios e arquivo de log
-    with open(os.path.join(project_path, f"{projectname}.log"), "w+") as logfile:
-        logfile.write(f"Projeto: {projectname}")
     tables_path = os.path.join(project_path, "tables")
     os.mkdir(tables_path)
     plots_path = os.path.join(project_path, "plots")
     os.mkdir(plots_path)
-    return project_path
 
+    # Criando sistema de log
+    log_file_path = os.path.join(project_path, "app.log")
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s',
+                        filename=log_file_path,
+                        filemode='w')
+
+    logging.info(f"Project name: {project_name}")
+    logging.info(f"Owned by: {user_name}")
+    logging.info(f"Created on: {datetime.now()}")
+    logging.info(f"O diretório {project_path} foi criado.")
+
+    return project_path
 
 def read_proteomics_file(rawfilepath, method, control):
     """Lê o arquivo de dados de proteômica e retorna um objeto OmicScope."""
@@ -264,15 +267,7 @@ if __name__ == "__main__":
             plots_dir = os.path.join(directory, "plots")
 
             # Configurando o logger
-            log_file_path = os.path.join(directory, f"{project_name}.log")
-            logging.basicConfig(level=logging.DEBUG,
-                                format='%(asctime)s - %(levelname)s - %(message)s',
-                                filename=log_file_path,
-                                filemode='w')
 
-            logging.info(f"Project name: {project_name}")
-            logging.info(f"Owned by: {user_name}")
-            logging.info(f"Created on: {datetime.now()}")
 
             print("Diretórios do projeto criados com sucesso.")
             logging.info("Diretórios do projeto criados com sucesso.")
