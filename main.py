@@ -211,8 +211,16 @@ def create_volcano_plot(df, cutoff, pvalue_cutoff, plotsdir, titlename):
     plt.xlim(-3, 3)
 
     handles, labels = plt.gca().get_legend_handles_labels()
-    order = ['Up-regulated', 'Down-regulated', 'Not Significant']
-    plt.legend([handles[labels.index(key)] for key in order], order, title='Regulation', frameon=False)
+    # Define a ordem ideal
+    order_preference = ['Up-regulated', 'Down-regulated', 'Not Significant']
+    # Filtra a ordem para incluir apenas os labels que existem no gráfico
+    final_order = [label for label in order_preference if label in labels]
+    # Cria um dicionário para mapear labels aos seus handles
+    legend_dict = dict(zip(labels, handles))
+    # Recria os handles na ordem correta
+    final_handles = [legend_dict[label] for label in final_order]
+
+    plt.legend(final_handles, final_order, title='Regulation', frameon=False)
 
     try:
         print("Gerando volcano plot...")
@@ -224,15 +232,24 @@ def create_volcano_plot(df, cutoff, pvalue_cutoff, plotsdir, titlename):
         logging.error(f"Um erro ocorreu durante a geração do volcano plot: {e}")
 
 
-def perform_ora_enrichment(rawfiledata, db, titlename, analysis, tablesdir, plotsdir):
+def perform_ora_enrichment(rawfiledata, db, analysis):
     print(f"Iniciando análise de: {analysis}...")
     logging.info(f"Iniciando análise: {analysis}...")
     data_object = omics.EnrichmentScope(rawfiledata, Analysis='ORA', dbs=[db])
     data_dataframe = data_object.results
-    create_xlsx_file(data_dataframe, titlename, tablesdir)
-    data_object.dotplot(dpi=300, palette='PuBu', save=os.path.join(plotsdir, f"{titlename}_"))
     print(f"Análise de {analysis} concluída.")
     logging.info(f"Análise de {analysis} concluída.")
+    return data_object, data_dataframe
+
+
+def plot_enrichment_data(enriched_object, plot, plotsdir, titlename, db):
+    if plot == "dotplot":
+        enriched_object.dotplot(dpi=300, palette='PuBu', save=os.path.join(plotsdir, f"{titlename}_"))
+        print(f"Gráfico dotplot {db} plotado.")
+        logging.info(f"Gráfico dotplot {db} plotado.")
+    else:
+        print(f"Gráfico inválido selecionado: {plot}")
+        logging.error(f"Gráfico para plotagem de enriquecimento inválido: {plot}")
 
 
 def create_xlsx_file(dataframe, name, tablesdir):
@@ -304,9 +321,11 @@ if __name__ == "__main__":
             # Criando arquivo json com as condições do estudo
             print("Criando arquivo de condições do estudo...")
             logging.info("Criando arquivo de condições do estudo...")
-            conditions_dictionary = {"Condições": f"{raw_file_data.Conditions}",
+            conditions_dictionary = {"Grupos": f"{raw_file_data.Conditions}",
                                      "Controle": f"{raw_file_data.ControlGroup}"}
             create_json_file(conditions_dictionary, "Condições do estudo", tables_dir)
+            logging.info(f"Grupos identificados no estudo: {raw_file_data.Conditions}")
+            logging.info(f"Grupo controle selecionado: {raw_file_data.ControlGroup}")
 
             # Criando tabela com os dados brutos
             print("Criando tabela de dados brutos...")
@@ -349,13 +368,11 @@ if __name__ == "__main__":
 
             # Barplot de identificação
             print("Iniciando plotagem de barplot de identificação das condições...")
-            plot_data(raw_file_data, "id_barplot", project_name, plots_dir,
-                      "barplot de identificação")
+            plot_data(raw_file_data, "id_barplot", project_name, plots_dir,"barplot de identificação")
 
             # Dynamic range
             print("Iniciando plotagem de Dynamic Range...")
-            plot_data(raw_file_data, "dynamic_range", project_name, plots_dir,
-                      "gráfico de dynamic range")
+            plot_data(raw_file_data, "dynamic_range", project_name, plots_dir,"gráfico de dynamic range")
 
             # Volcano plot
             print("Iniciando plotagem de Volcano Plot...")
@@ -367,28 +384,23 @@ if __name__ == "__main__":
 
             # Gráfico de normalização
             print("Iniciando plotagem de gráfico de normalização...")
-            plot_data(raw_file_data, "normalization_plot", project_name, plots_dir,
-                      "gráfico de normalização")
+            plot_data(raw_file_data, "normalization_plot", project_name, plots_dir,"gráfico de normalização")
 
             # Barplot de proteínas entre as condições
             print("Iniciando plotagem de barplot comparando proteínas entre condições...")
-            plot_data(raw_file_data, "conditions_barplot", project_name,
-                      plots_dir, "gráfico barplot de comparação de proteínas entre condições")
+            plot_data(raw_file_data, "conditions_barplot", project_name, plots_dir, "gráfico barplot de comparação de proteínas entre condições")
 
             # Boxplot de proteínas entre as condições
             print("Iniciando plotagem de boxplot comparando proteínas entre condições...")
-            plot_data(raw_file_data, "conditions_boxplot", project_name,
-                      plots_dir, "gráfico boxplot de comparação de proteínas entre condições")
+            plot_data(raw_file_data, "conditions_boxplot", project_name, plots_dir, "gráfico boxplot de comparação de proteínas entre condições")
 
             # Heatmap de expressão
             print("Iniciando plotagem de heatmap de expressão...")
-            plot_data(raw_file_data, "expression_heatmap", project_name, plots_dir,
-                      "gráfico heatmap de expressão")
+            plot_data(raw_file_data, "expression_heatmap", project_name, plots_dir,"gráfico heatmap de expressão")
 
             # Heatmap de correlação
             print("Iniciando plotagem de heatmap de correlação...")
-            plot_data(raw_file_data, "correlation_heatmap", project_name, plots_dir,
-                      "gráfico heatmap de correlação")
+            plot_data(raw_file_data, "correlation_heatmap", project_name, plots_dir,"gráfico heatmap de correlação")
 
             # PCA
             print("Iniciando plotagem de gráfico de PCA...")
@@ -406,26 +418,40 @@ if __name__ == "__main__":
             logging.info("Iniciando enriquecimento dos dados...")
 
             # KEGG
-            perform_ora_enrichment(raw_file_data, 'KEGG_2021_Human', project_name, "vias KEGG",
-                                   tables_dir, plots_dir)
+            kegg_object, kegg_df = perform_ora_enrichment(raw_file_data, 'KEGG_2021_Human', "vias KEGG")
+            plot_enrichment_data(kegg_object, "dotplot", plots_dir, project_name, "Kegg Pathways")
+            create_xlsx_file(kegg_df, f"{project_name}_KEGG_2021_Human", tables_dir)
 
             # GO: processo biológico
-            perform_ora_enrichment(raw_file_data, 'GO_Biological_Process_2025', project_name,"processo biológico", tables_dir, plots_dir)
+            BP_object, BP_df = perform_ora_enrichment(raw_file_data, 'GO_Biological_Process_2025', "processo biológico")
+            plot_enrichment_data(BP_object, "dotplot", plots_dir, project_name, "GO: Processo Biológico")
+            create_xlsx_file(BP_df, f"{project_name}_GO_Biological_Process_2025", tables_dir)
 
             # CC: componente celular
-            perform_ora_enrichment(raw_file_data, 'GO_Cellular_Component_2025', project_name, "componente celular", tables_dir, plots_dir)
+            CC_object, CC_df = perform_ora_enrichment(raw_file_data, 'GO_Cellular_Component_2025', "componente celular")
+            plot_enrichment_data(BP_object, "dotplot", plots_dir, project_name, "GO: Componente celular")
+            create_xlsx_file(CC_df, f"{project_name}_GO_Cellular_Component_2025", tables_dir)
 
             # MF: função molecular
-            perform_ora_enrichment(raw_file_data, 'GO_Molecular_Function_2025', project_name, "função molecular", tables_dir, plots_dir)
+            MF_object, MF_df = perform_ora_enrichment(raw_file_data, 'GO_Molecular_Function_2025', "função molecular")
+            plot_enrichment_data(MF_object, "dotplot", plots_dir, project_name, "GO: Função molecular")
+            create_xlsx_file(MF_df, f"{project_name}_GO_Molecular_Function_2025", tables_dir)
 
             # Reactome
-            perform_ora_enrichment(raw_file_data, 'Reactome_Pathways_2024', project_name, "vias Reactome", tables_dir, plots_dir)
+            reactome_object, reactome_df = perform_ora_enrichment(raw_file_data, 'Reactome_Pathways_2024', "vias reactome")
+            plot_enrichment_data(reactome_object, "dotplot", plots_dir, project_name, "Reactome")
+            create_xlsx_file(reactome_df, f"{project_name}_Reactome_Pathways_2024", tables_dir)
 
             # OMIM
-            perform_ora_enrichment(raw_file_data, 'OMIM_Expanded', project_name, "vias OMIM", tables_dir, plots_dir)
+            OMIM_object, OMIM_df = perform_ora_enrichment(raw_file_data, 'OMIM_Expanded',"vias OMIM")
+            plot_enrichment_data(OMIM_object, "dotplot", plots_dir, project_name, "OMIM")
+            create_xlsx_file(OMIM_df, f"{project_name}_OMIM_Expanded", tables_dir)
 
             # DisGeNET
-            perform_ora_enrichment(raw_file_data, 'DisGeNET', project_name, "vias DisGeNET", tables_dir, plots_dir)
+            DisGeNET_object, DisGeNET_df = perform_ora_enrichment(raw_file_data, 'DisGeNET', "vias DisGeNET")
+            plot_enrichment_data(DisGeNET_object, "dotplot", plots_dir, project_name, "DisGeNET")
+            create_xlsx_file(DisGeNET_df, f"{project_name}_DisGeNET", tables_dir)
+
             print("Enriquecimento dos dados concluído.")
             logging.info("Enriquecimento dos dados concluído.")
             print("Análise dos dados concluída com sucesso!")
