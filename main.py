@@ -16,6 +16,8 @@ from matplotlib import pyplot as plt
 def create_dir(targetdirectory, projectname):
     """Cria a estrutura de diretórios do projeto."""
     if not os.path.exists(targetdirectory):
+        logging.error(f"O diretório de destino não existe: {targetdirectory}")
+        logging.shutdown()
         raise FileNotFoundError(f"O diretório de destino não existe: {targetdirectory}")
 
     project_path = os.path.join(targetdirectory, projectname)
@@ -49,18 +51,28 @@ def create_dir(targetdirectory, projectname):
         os.mkdir(project_path)
         print(f"O diretório {projectname} foi criado em {targetdirectory}")
 
-    # Cria subdiretórios e arquivo de log
-    tables_path = os.path.join(project_path, "tables")
-    os.mkdir(tables_path)
-    plots_path = os.path.join(project_path, "plots")
-    os.mkdir(plots_path)
+    # Cria subdiretórios
+    try:
+        tables_path = os.path.join(project_path, "tables")
+        os.mkdir(tables_path)
+        plots_path = os.path.join(project_path, "plots")
+        os.mkdir(plots_path)
+    except PermissionError:
+        print(f"O usuário não possui permissão para criar os subdiretórios. Consulte o usuário administrador para mais informações")
+        exit(0)
+    except Exception as subdir_error:
+        raise Exception(f"Ocorreu um erro durante a criação dos subdiretórios: {subdir_error}")
 
     # Criando sistema de log
-    log_file_path = os.path.join(project_path, "app.log")
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s - %(levelname)s - %(message)s',
-                        filename=log_file_path,
-                        filemode='w')
+    try:
+        log_file_path = os.path.join(project_path, "app.log")
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s - %(levelname)s - %(message)s',
+                            filename=log_file_path,
+                            filemode='w')
+    except Exception as log_error:
+        print(f"Erro ao criar o sistema de log: {log_error}")
+
 
     logging.info(f"Project name: {project_name}")
     logging.info(f"Owned by: {user_name}")
@@ -75,59 +87,98 @@ def read_proteomics_file(rawfilepath, method, control):
     rawfilepath = rawfilepath.strip().strip('"')
 
     if not os.path.exists(rawfilepath):
-        raise FileNotFoundError(
-            f"Arquivo não encontrado: {rawfilepath}. Verifique o caminho inserido e tente novamente.")
+        logging.error(f"Arquivo com os dados de proteômica não encontrado: {rawfilepath}.")
+        logging.shutdown()
+        raise FileNotFoundError(f"Arquivo com os dados de proteômica não encontrado: {rawfilepath}. Verifique o caminho inserido e tente novamente.")
     elif os.path.getsize(rawfilepath) == 0:
-        raise Exception(
-            f"O arquivo fornecido está vazio: {rawfilepath}. Verifique o conteúdo do mesmo e tente novamente.")
+        logging.error(f"O arquivo com os dados da proteômica fornecido está vazio: {rawfilepath}.")
+        logging.shutdown()
+        raise Exception(f"O arquivo com os dados da proteômica fornecido está vazio: {rawfilepath}. Verifique o conteúdo do mesmo e tente novamente.")
 
     try:
         data = omics.OmicScope(rawfilepath, Method=method, ControlGroup=control)
         return data
     except Exception as e:
         logging.error(f"Erro ao ler o arquivo de proteômica: {str(e)}")
+        logging.shutdown()
         raise Exception(f"Erro ao ler o arquivo de proteômica: {str(e)}")
 
 
 def plot_data(rawfiledata, analysis_type, titlename, plotsdir, analysis):
-
     if analysis_type == "conditions_barplot" or analysis_type == "conditions_boxplot":
-        proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ")
-        # Remove aspas simples e duplas se o usuário as inserir
-        proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
-        palette = input("Insira a paleta desejada (pressione enter para utilizar a paleta de cores padrão): ").lower()
-        if len(palette) == 0:
-            palette = 'viridis'
-        print(f"Gerando {analysis}...")
-        logging.info(f"Gerando {analysis}...")
-        if analysis_type == "conditions_barplot":
-            rawfiledata.bar_protein(*proteins_list,
-                                    palette=palette,
-                                    dpi=300,
-                                    save=os.path.join(plotsdir, f"{titlename}_"))
-        else:  # conditions_boxplot
-            rawfiledata.boxplot_protein(*proteins_list,
-                                 palette=palette,
-                                 dpi=300,
-                                 save=os.path.join(plotsdir, f"{titlename}_"))
+        while True:
+            try:
+                proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ").upper()
+                # Remove aspas simples e duplas se o usuário as inserir
+                proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
+
+                palette = input("Insira a paleta desejada (pressione enter para utilizar a paleta de cores padrão): ")
+                if len(palette) == 0:
+                    palette = 'viridis'
+
+                print(f"Gerando {analysis}...")
+                logging.info(f"Gerando {analysis}...")
+                if analysis_type == "conditions_barplot":
+                    rawfiledata.bar_protein(*proteins_list,
+                                            palette=palette,
+                                            dpi=300,
+                                            save=os.path.join(plotsdir, f"{titlename}_"))
+
+                else:  # conditions_boxplot
+                    rawfiledata.boxplot_protein(*proteins_list,
+                                                palette=palette,
+                                                dpi=300,
+                                                save=os.path.join(plotsdir, f"{titlename}_"))
+                break
+            except IndexError:
+                print(f"Proteína(s) inserida(s) não localizada(s): {proteins_string}")
+                logging.error(f"Proteína(s) inserida(s) não localizada(s): {proteins_string}")
+            except ValueError:
+                print(f"Valor inserido inválido: {proteins_string}")
+                logging.error(f"Valor inserido inválido: {proteins_string}")
+
 
     elif analysis_type == "dynamic_range":
-        proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ")
-        proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
-        print(f"Gerando {analysis}...")
-        logging.info(f"Gerando {analysis}...")
-        rawfiledata.DynamicRange(*proteins_list,
-                                  dpi=300,
-                                  save=os.path.join(plotsdir, f"{titlename}_"))
+        while True:
+            try:
+                proteins_string = input(
+                    "Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ").upper()
+                # Remove aspas simples e duplas se o usuário as inserir
+                proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
+
+                print(f"Gerando {analysis}...")
+                logging.info(f"Gerando {analysis}...")
+                rawfiledata.DynamicRange(*proteins_list,
+                                         dpi=300,
+                                         save=os.path.join(plotsdir, f"{titlename}_"))
+                break
+            except IndexError:
+                print(f"Proteína(s) inserida(s) não localizada(s): {proteins_string}")
+                logging.error(f"Proteína(s) inserida(s) não localizada(s): {proteins_string}")
+            except ValueError:
+                print(f"Valor inserido inválido: {proteins_string}")
+                logging.error(f"Valor inserido inválido: {proteins_string}")
+
 
     elif analysis_type == "ma_plot":
-        proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ")
-        proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
-        print(f"Gerando {analysis}...")
-        logging.info(f"Gerando {analysis}...")
-        rawfiledata.MAplot(*proteins_list,
-                            dpi=300,
-                            save=os.path.join(plotsdir, f"{titlename}_"))
+        while True:
+            try:
+                proteins_string = input(
+                    "Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ").upper()
+                # Remove aspas simples e duplas se o usuário as inserir
+                proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
+                print(f"Gerando {analysis}...")
+                logging.info(f"Gerando {analysis}...")
+                rawfiledata.MAplot(*proteins_list,
+                                   dpi=300,
+                                   save=os.path.join(plotsdir, f"{titlename}_"))
+                break
+            except IndexError:
+                print(f"Proteína(s) inserida(s) não localizada(s): {proteins_string}")
+                logging.error(f"Proteína(s) inserida(s) não localizada(s): {proteins_string}")
+            except ValueError:
+                print(f"Valor inserido inválido: {proteins_string}")
+                logging.error(f"Valor inserido inválido: {proteins_string}")
 
     elif analysis_type == "correlation_heatmap":
         print(f"Gerando {analysis}...")
@@ -168,68 +219,73 @@ def plot_data(rawfiledata, analysis_type, titlename, plotsdir, analysis):
                                        save=os.path.join(plotsdir, f"{titlename}_"))
 
 def create_volcano_plot(df, cutoff, pvalue_cutoff, plotsdir, titlename):
-    proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ")
-    proteins_list = [p.strip() for p in proteins_string.split(',') if p.strip()]
-    full_path = os.path.join(plotsdir, f"{titlename}.svg")
-    df['regulation'] = 'Not Significant'
-    condition_up = (df['log2(fc)'] >= cutoff) & (df['pAdjusted'] < pvalue_cutoff)
-    condition_down = (df['log2(fc)'] <= -cutoff) & (df['pAdjusted'] < pvalue_cutoff)
-    df.loc[condition_up, 'regulation'] = 'Up-regulated'
-    df.loc[condition_down, 'regulation'] = 'Down-regulated'
+    while True:
+        try:
+            proteins_string = input("Insira as proteínas que deseja apontar no gráfico, separadas por vírgula. Certifique-se de que as proteínas indicadas estão na tabela, e que estão escritas exatamente como estão na tabela: ").upper()
+            # Remove aspas simples e duplas se o usuário as inserir
+            proteins_list = [p.strip().strip("'").strip('"') for p in proteins_string.split(',') if p.strip()]
 
-    # --- Plot Styling ---
-    plt.style.use('seaborn-v0_8-white')
-    plt.figure(figsize=(8, 8))
+            full_path = os.path.join(plotsdir, f"{titlename}.svg")
+            df['regulation'] = 'Not Significant'
+            condition_up = (df['log2(fc)'] >= cutoff) & (df['pAdjusted'] < pvalue_cutoff)
+            condition_down = (df['log2(fc)'] <= -cutoff) & (df['pAdjusted'] < pvalue_cutoff)
+            df.loc[condition_up, 'regulation'] = 'Up-regulated'
+            df.loc[condition_down, 'regulation'] = 'Down-regulated'
 
-    palette = {
-        'Up-regulated': '#ff4d4d',
-        'Down-regulated': '#4d4dff',
-        'Not Significant': 'darkgrey'
-    }
+            # --- Plot Styling ---
+            plt.style.use('seaborn-v0_8-white')
+            plt.figure(figsize=(8, 8))
 
-    sns.scatterplot(
-        data=df, x='log2(fc)', y='-log10(pAdjusted)', hue='regulation',
-        palette=palette, s=40, alpha=0.7, edgecolor='none'
-    )
+            palette = {
+                'Up-regulated': '#ff4d4d',
+                'Down-regulated': '#4d4dff',
+                'Not Significant': 'darkgrey'
+            }
 
-    # --- Axis and threshold lines ---
-    plt.axvline(x=0, color='black', linestyle='-', linewidth=0.75)
-    plt.axhline(y=-np.log10(pvalue_cutoff), color='dimgrey', linestyle='--', linewidth=1)
-    plt.axvline(x=cutoff, color='dimgrey', linestyle='--', linewidth=1)
-    plt.axvline(x=-cutoff, color='dimgrey', linestyle='--', linewidth=1)
+            sns.scatterplot(
+                data=df, x='log2(fc)', y='-log10(pAdjusted)', hue='regulation',
+                palette=palette, s=40, alpha=0.7, edgecolor='none'
+            )
 
-    # --- Protein Labeling ---
-    df_labels = df[df['gene_name'].isin(proteins_list)]
-    for index, row in df_labels.iterrows():
-        plt.text(row['log2(fc)'], row['-log10(pAdjusted)'], row['gene_name'],
-                 ha='center', va='bottom', fontsize=9, fontweight='bold', alpha=0.9)
+            # --- Axis and threshold lines ---
+            plt.axvline(x=0, color='black', linestyle='-', linewidth=0.75)
+            plt.axhline(y=-np.log10(pvalue_cutoff), color='dimgrey', linestyle='--', linewidth=1)
+            plt.axvline(x=cutoff, color='dimgrey', linestyle='--', linewidth=1)
+            plt.axvline(x=-cutoff, color='dimgrey', linestyle='--', linewidth=1)
 
-    # --- Final Plot Customization ---
-    plt.title('Volcano Plot', fontsize=16, fontweight='bold')
-    plt.ylabel(r'$-log_{10}(Adjusted\ p-value)$', fontsize=12)
-    plt.xlabel(r'$log_2(Fold\ Change)$', fontsize=12)
-    plt.xlim(-3, 3)
+            # --- Protein Labeling ---
+            df_labels = df[df['gene_name'].isin(proteins_list)]
+            for index, row in df_labels.iterrows():
+                plt.text(row['log2(fc)'], row['-log10(pAdjusted)'], row['gene_name'],
+                         ha='center', va='bottom', fontsize=9, fontweight='bold', alpha=0.9)
 
-    handles, labels = plt.gca().get_legend_handles_labels()
-    # Define a ordem ideal
-    order_preference = ['Up-regulated', 'Down-regulated', 'Not Significant']
-    # Filtra a ordem para incluir apenas os labels que existem no gráfico
-    final_order = [label for label in order_preference if label in labels]
-    # Cria um dicionário para mapear labels aos seus handles
-    legend_dict = dict(zip(labels, handles))
-    # Recria os handles na ordem correta
-    final_handles = [legend_dict[label] for label in final_order]
+            # --- Final Plot Customization ---
+            plt.title('Volcano Plot', fontsize=16, fontweight='bold')
+            plt.ylabel(r'$-log_{10}(Adjusted\ p-value)$', fontsize=12)
+            plt.xlabel(r'$log_2(Fold\ Change)$', fontsize=12)
+            plt.xlim(-3, 3)
 
-    plt.legend(final_handles, final_order, title='Regulation', frameon=False)
+            handles, labels = plt.gca().get_legend_handles_labels()
+            # Define a ordem ideal
+            order_preference = ['Up-regulated', 'Down-regulated', 'Not Significant']
+            # Filtra a ordem para incluir apenas os labels que existem no gráfico
+            final_order = [label for label in order_preference if label in labels]
+            # Cria um dicionário para mapear labels aos seus handles
+            legend_dict = dict(zip(labels, handles))
+            # Recria os handles na ordem correta
+            final_handles = [legend_dict[label] for label in final_order]
 
-    try:
-        print("Gerando volcano plot...")
-        plt.savefig(full_path, format='svg', dpi=300, bbox_inches='tight')
-        print(f"\nVolcano plot salvo com sucesso em: '{full_path}'")
-        logging.info(f"Volcano plot salvo com sucesso em: '{full_path}'")
-    except Exception as e:
-        print(f"Um erro ocorreu durante a geração do volcano plot: {e}")
-        logging.error(f"Um erro ocorreu durante a geração do volcano plot: {e}")
+            plt.legend(final_handles, final_order, title='Regulation', frameon=False)
+
+            print("Gerando volcano plot...")
+            plt.savefig(full_path, format='svg', dpi=300, bbox_inches='tight')
+            print(f"\nVolcano plot salvo com sucesso em: '{full_path}'")
+            logging.info(f"Volcano plot salvo com sucesso em: '{full_path}'")
+            break
+
+        except Exception as e:
+            print(f"Um erro ocorreu durante a geração do volcano plot: {e}")
+            logging.error(f"Um erro ocorreu durante a geração do volcano plot: {e}")
 
 
 def perform_ora_enrichment(rawfiledata, db, analysis):
@@ -352,6 +408,8 @@ if __name__ == "__main__":
             try:
                 fc = float(fc_input)
                 if fc <= 0:
+                    logging.error(f"Valor de FC selecionado < 0: {fc_input}. O valor deve ser maior que 0.")
+                    logging.shutdown()
                     raise ValueError("FC deve ser maior que zero.")
                 log2fc_cutoff = math.log2(fc)
             except ValueError as e:
@@ -460,21 +518,25 @@ if __name__ == "__main__":
             while True:
                 repeat = input("Deseja realizar uma nova análise? (y/n): ").lower().strip()
                 if repeat == "y":
+                    logging.shutdown()
                     break  # Sai do loop interno e continua o loop principal
                 elif repeat == "n":
                     print("Encerrando o programa...")
                     logging.info("Programa encerrado pelo usuário.")
+                    logging.shutdown()
                     exit(0)  # Encerra o programa
                 else:
                     print(f"Valor inválido inserido: '{repeat}'. Por favor, digite 'y' para sim ou 'n' para não.")
-                    logging.warning(f"Valor inválido inserido: {repeat}")
+                    logging.warning(f"Valor inválido inserido para uma nova análise: {repeat}")
 
         except ValueError as error:
             print(f"O valor inserido é invalido: {error}")
             logging.error(f"O valor inserido é invalido: {error}", exc_info=True)
+            logging.shutdown()
         except Exception as error:
             print(f"Erro inesperado: {error}")
             logging.error(f"Erro inesperado: {error}", exc_info=True)
+            logging.shutdown()
 
 
 
