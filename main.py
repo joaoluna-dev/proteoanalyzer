@@ -291,7 +291,7 @@ def create_volcano_plot(df, cutoff, pvalue_cutoff, plotsdir, titlename):
 def perform_ora_enrichment(rawfiledata, db, analysis):
     print(f"Iniciando análise de: {analysis}...")
     logging.info(f"Iniciando análise: {analysis}...")
-    data_object = omics.EnrichmentScope(rawfiledata, Analysis='ORA', dbs=[db])
+    data_object = omics.EnrichmentScope(rawfiledata, Analysis='ORA', dbs=[f"{db}"])
     data_dataframe = data_object.results
     print(f"Análise de {analysis} concluída.")
     logging.info(f"Análise de {analysis} concluída.")
@@ -326,6 +326,7 @@ def create_json_file(dictionary, name, tablesdir):
 
 
 # ----------------------------------------------------------------------------------#
+DATA_DIR = os.path.join(os.path.abspath(__file__), "data")
 
 if __name__ == "__main__":
     while True:
