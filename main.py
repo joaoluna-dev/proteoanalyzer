@@ -325,7 +325,7 @@ def create_json_file(dictionary, name, tablesdir):
         json.dump(dictionary, js)
 
 
-# ----------------------------------------------------------------------------------#
+# ---------------------------------------------------------------------------------#
 DATA_DIR = os.path.join(os.path.abspath(__file__), "data")
 
 if __name__ == "__main__":
