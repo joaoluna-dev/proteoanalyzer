@@ -10,6 +10,7 @@ import math
 import logging
 import shutil
 from matplotlib import pyplot as plt
+from contextlib import contextmanager
 
 
 # ---------------------------------------------------------------------------------#
@@ -288,10 +289,11 @@ def create_volcano_plot(df, cutoff, pvalue_cutoff, plotsdir, titlename):
             logging.error(f"Um erro ocorreu durante a geração do volcano plot: {e}")
 
 
-def perform_ora_enrichment(rawfiledata, db, analysis):
+def perform_ora_enrichment(rawfiledata, db, analysis, datadir):
     print(f"Iniciando análise de: {analysis}...")
     logging.info(f"Iniciando análise: {analysis}...")
-    data_object = omics.EnrichmentScope(rawfiledata, Analysis='ORA', dbs=[f"{db}"])
+    with change_dir(datadir):
+        data_object = omics.EnrichmentScope(rawfiledata, Analysis='ORA', dbs=[db])
     data_dataframe = data_object.results
     print(f"Análise de {analysis} concluída.")
     logging.info(f"Análise de {analysis} concluída.")
@@ -324,9 +326,18 @@ def create_json_file(dictionary, name, tablesdir):
     with open(filename, "w+") as js:
         json.dump(dictionary, js)
 
+@contextmanager
+def change_dir(datadir):
+    try:
+        cwd = os.getcwd()
+        os.chdir(datadir)
+        yield
+    finally:
+        os.chdir(cwd)
 
 # ---------------------------------------------------------------------------------#
-DATA_DIR = os.path.join(os.path.abspath(__file__), "data")
+WORKING_DIR = os.getcwd()
+DATA_DIR = os.path.join(WORKING_DIR, "data")
 
 if __name__ == "__main__":
     while True:
@@ -477,37 +488,37 @@ if __name__ == "__main__":
             logging.info("Iniciando enriquecimento dos dados...")
 
             # KEGG
-            kegg_object, kegg_df = perform_ora_enrichment(raw_file_data, 'KEGG_2021_Human', "vias KEGG")
+            kegg_object, kegg_df = perform_ora_enrichment(raw_file_data, 'KEGG_2021_Human', "vias KEGG", DATA_DIR)
             plot_enrichment_data(kegg_object, "dotplot", plots_dir, project_name, "Kegg Pathways")
             create_xlsx_file(kegg_df, f"{project_name}_KEGG_2021_Human", tables_dir)
 
             # GO: processo biológico
-            BP_object, BP_df = perform_ora_enrichment(raw_file_data, 'GO_Biological_Process_2025', "processo biológico")
+            BP_object, BP_df = perform_ora_enrichment(raw_file_data, 'GO_Biological_Process_2025', "processo biológico", DATA_DIR)
             plot_enrichment_data(BP_object, "dotplot", plots_dir, project_name, "GO: Processo Biológico")
             create_xlsx_file(BP_df, f"{project_name}_GO_Biological_Process_2025", tables_dir)
 
             # CC: componente celular
-            CC_object, CC_df = perform_ora_enrichment(raw_file_data, 'GO_Cellular_Component_2025', "componente celular")
+            CC_object, CC_df = perform_ora_enrichment(raw_file_data, 'GO_Cellular_Component_2025', "componente celular", DATA_DIR)
             plot_enrichment_data(BP_object, "dotplot", plots_dir, project_name, "GO: Componente celular")
             create_xlsx_file(CC_df, f"{project_name}_GO_Cellular_Component_2025", tables_dir)
 
             # MF: função molecular
-            MF_object, MF_df = perform_ora_enrichment(raw_file_data, 'GO_Molecular_Function_2025', "função molecular")
+            MF_object, MF_df = perform_ora_enrichment(raw_file_data, 'GO_Molecular_Function_2025', "função molecular", DATA_DIR)
             plot_enrichment_data(MF_object, "dotplot", plots_dir, project_name, "GO: Função molecular")
             create_xlsx_file(MF_df, f"{project_name}_GO_Molecular_Function_2025", tables_dir)
 
             # Reactome
-            reactome_object, reactome_df = perform_ora_enrichment(raw_file_data, 'Reactome_Pathways_2024', "vias reactome")
+            reactome_object, reactome_df = perform_ora_enrichment(raw_file_data, 'Reactome_Pathways_2024', "vias reactome", DATA_DIR)
             plot_enrichment_data(reactome_object, "dotplot", plots_dir, project_name, "Reactome")
             create_xlsx_file(reactome_df, f"{project_name}_Reactome_Pathways_2024", tables_dir)
 
             # OMIM
-            OMIM_object, OMIM_df = perform_ora_enrichment(raw_file_data, 'OMIM_Expanded',"vias OMIM")
+            OMIM_object, OMIM_df = perform_ora_enrichment(raw_file_data, 'OMIM_Expanded',"vias OMIM", DATA_DIR)
             plot_enrichment_data(OMIM_object, "dotplot", plots_dir, project_name, "OMIM")
             create_xlsx_file(OMIM_df, f"{project_name}_OMIM_Expanded", tables_dir)
 
             # DisGeNET
-            DisGeNET_object, DisGeNET_df = perform_ora_enrichment(raw_file_data, 'DisGeNET', "vias DisGeNET")
+            DisGeNET_object, DisGeNET_df = perform_ora_enrichment(raw_file_data, 'DisGeNET', "vias DisGeNET", DATA_DIR)
             plot_enrichment_data(DisGeNET_object, "dotplot", plots_dir, project_name, "DisGeNET")
             create_xlsx_file(DisGeNET_df, f"{project_name}_DisGeNET", tables_dir)
 
